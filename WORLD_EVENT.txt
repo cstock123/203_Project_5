@@ -1,0 +1,29 @@
+1. This game has now become fully interactable with a character 
+that walks around the screen. At the top you will se an Ore-count.
+Once You reach 5 Ore you can shoot using the CONTROL KEY. 
+The fire will shoot in the last direction you were facing.
+
+2. When you trigger the event, a fire animation will come out of the
+character. It will be in the direction he was last facing.
+
+3. Several Things will happen. First, The fire animation is triggered. 
+Second, The background will be changed to a different color grass.
+Third, if a miner is in the way of the fire, it will turn into
+a miner that is on fire.  He will run fast to the nearest water around.
+If any other entity is in the way of the fire, the entity will be removed
+from the world.
+
+4. The new entity is both the character and the miner on fire.
+
+*COOL NOTE: We changed the way the world is built.  It reads a PNG file
+and evaluates the RGB value of each pixel.  Then depending on that
+RGB value, then it will create an entity specific to that RGB value.
+This makes it a lot easier to create/design worlds, and adds a really
+cool feature.
+
+5. Camden Stocker: The logic/code in adding the new miner/miner on fire.
+And the login/code for moving the world.
+
+Nattie Copeland: The logic/code in moving the character around the world.
+and moving the screen depending on where the character is in the view.
+All the animations and graphic design of the new entities.
