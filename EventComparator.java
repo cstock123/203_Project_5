@@ -5,6 +5,6 @@ final class EventComparator
 {
    public int compare(Event lft, Event rht)
    {
-      return (int)(lft.getTime() - rht.getTime());
+      return (int)(lft.time() - rht.time());
    }
 }

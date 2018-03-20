@@ -1,6 +1,6 @@
 final class Point {
-    private final int x;
-    private final int y;
+    public final int x;
+    public final int y;
 
     public Point(int x, int y) {
         this.x = x;
@@ -8,7 +8,7 @@ final class Point {
     }
 
     public int getX() { return x; }
-    public int getY(){ return y; }
+    public int getY() { return y; }
 
     public String toString() {
         return "(" + x + "," + y + ")";
@@ -38,7 +38,4 @@ final class Point {
 
         return deltaX * deltaX + deltaY * deltaY;
     }
-
-
-
 }

@@ -1,32 +1,49 @@
 public class Node {
-    private int g, h, f;
-    private Node previous;
-    private Point current;
 
-    public Node(int g, int h, int f, Point current, Node previous) {
-        this.g = g;
-        this.h = h;
-        this.f = f;
-        this.current = current;
-        this.previous = previous;
+    private Point pos;
+
+    private int gScore;
+
+    private int hScore;
+
+    private Node parent;
+
+    public Node(Point pos, int gScore, int hScore, Node parent){
+        this.pos = pos;
+        this.gScore = gScore;
+        this.hScore = hScore;
+        this.parent = parent;
     }
 
-    public Point current() { return current; }
-    public int getF() { return f; }
-    public Node previous() { return previous; }
+    public Point getPos(){return pos;}
 
-    public boolean equals(Object o){
-        if(o == null) {
-            return false;
-        }
-        if(o.getClass() != getClass()) {
-            return false;
-        }
-        Node n = (Node)o;
-        return current.equals(n.current);
+    public int getgScore(){return gScore;}
+
+    public Node getParent(){return parent;}
+
+    public int getHur(){return gScore + hScore;}
+
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        Node aStarNode = (Node) o;
+
+        if (Double.compare(aStarNode.gScore, gScore) != 0) return false;
+        if (Double.compare(aStarNode.hScore, hScore) != 0) return false;
+        return pos != null ? pos.equals(aStarNode.pos) : aStarNode.pos == null;
     }
 
-    public String toString() {
-        return current.getX() + " " + current.getY();
+    public int hashCode() {
+        int result;
+        long temp;
+        result = pos != null ? pos.hashCode() : 0;
+        temp = Double.doubleToLongBits(gScore);
+        result = 31 * result + (int) (temp ^ (temp >>> 32));
+        temp = Double.doubleToLongBits(hScore);
+        result = 31 * result + (int) (temp ^ (temp >>> 32));
+        result = 31 * result + (parent != null ? parent.hashCode() : 0);
+        return result;
     }
+
 }

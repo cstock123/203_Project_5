@@ -1,5 +1,8 @@
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 import java.util.Scanner;
 
 import processing.core.*;
@@ -14,7 +17,6 @@ public final class VirtualWorld
     private static final int TILE_HEIGHT = 32;
     private static final int WORLD_WIDTH_SCALE = 2;
     private static final int WORLD_HEIGHT_SCALE = 2;
-
     private static final int VIEW_COLS = VIEW_WIDTH / TILE_WIDTH;
     private static final int VIEW_ROWS = VIEW_HEIGHT / TILE_HEIGHT;
     private static final int WORLD_COLS = VIEW_COLS * WORLD_WIDTH_SCALE;
@@ -25,6 +27,8 @@ public final class VirtualWorld
     private static final int DEFAULT_IMAGE_COLOR = 0x808080;
 
     private static final String LOAD_FILE_NAME = "gaia.sav";
+
+    private static String LAST_DIRECTION = "RIGHT";
 
     private static final String FAST_FLAG = "-fast";
     private static final String FASTER_FLAG = "-faster";
@@ -58,7 +62,7 @@ public final class VirtualWorld
                 TILE_WIDTH, TILE_HEIGHT);
         this.scheduler = new EventScheduler(timeScale);
 
-        ImageLoader.loadImages(IMAGE_LIST_FILE_NAME, imageStore, this);
+        loadImages(IMAGE_LIST_FILE_NAME, imageStore, this);
         loadWorld(world, LOAD_FILE_NAME, imageStore);
 
         scheduleActions(world, scheduler, imageStore);
@@ -84,29 +88,115 @@ public final class VirtualWorld
             switch (keyCode) {
                 case UP:
                     dy = -1;
+                    LAST_DIRECTION = "UP";
                     break;
                 case DOWN:
                     dy = 1;
+                    LAST_DIRECTION = "DOWN";
                     break;
                 case LEFT:
                     dx = -1;
+                    LAST_DIRECTION = "LEFT";
                     break;
                 case RIGHT:
                     dx = 1;
+                    LAST_DIRECTION = "RIGHT";
                     break;
+                case CONTROL:
+                    spawnFire();
             }
-            Character c = world.getCharacter();
-            Point newPos = new Point(c.getPosition().getX() + dx, c.getPosition().getY() + dy);
-            if(world.withinBounds(newPos) && !world.isOccupied(newPos)) {
-                view.shiftView(dx, dy);
-                c.setPosition(new Point(c.getPosition().getX() + dx, c.getPosition().getY() + dy));
-            }
+            moveStuff(dx, dy);
         }
     }
 
+    private void spawnFire(){
+        Character c = world.getCharacter();
+        List<Point> firePos = new ArrayList<>();
+        Point charPos = c.getPosition();
+        String key = "";
+
+        if(c.getInventory().getNumOre() >= 5) {
+            if(LAST_DIRECTION.equals("UP")) {
+                firePos.add(translatePoint(charPos, 0, -1));
+                firePos.add(translatePoint(charPos, 0, -2));
+                key = "fireUp";
+            } else if(LAST_DIRECTION.equals("RIGHT")) {
+                firePos.add(translatePoint(charPos, 1, 0));
+                firePos.add(translatePoint(charPos, 2, 0));
+                key = "fireRight";
+            } else if(LAST_DIRECTION.equals("DOWN")) {
+                firePos.add(translatePoint(charPos, 0, 1));
+                firePos.add(translatePoint(charPos, 0, 2));
+                key = "fireDown";
+            } else if(LAST_DIRECTION.equals("LEFT")) {
+                firePos.add(translatePoint(charPos, -1, 0));
+                firePos.add(translatePoint(charPos, -2, 0));
+                key = "fireLeft";
+            }
+            addFire(key, firePos.get(0), c);
+            addFire(key + "2", firePos.get(1), c);
+            c.getInventory().decrement5();
+        }
+    }
+
+    private void addFire(String key, Point p, Character c) {
+        if(world.isOccupied(p)) {
+            Entity occupant = world.getOccupant(p).get();
+            if(occupant.getClass() == MinerNotFull.class || occupant.getClass() == MinerFull.class) {
+                ActiveEntity fireMiner = new MinerOnFire("junk", occupant.getPosition(),
+                        imageStore.getImageList("minerFire"), 2, 200, 75, 0);
+                world.removeEntity(occupant);
+                scheduler.unscheduleAllEvents(occupant);
+                world.addEntity(fireMiner);
+                fireMiner.scheduleActions(scheduler, world, imageStore);
+                world.setBackground(p, new Background(imageStore.getImageList("burnt")));
+            }
+            world.removeEntity(occupant);
+            scheduler.unscheduleAllEvents(occupant);
+        } else {
+            ActiveEntity fire = new Fire(p, imageStore.getImageList(key), 1000, 75, 0);
+            world.addEntity(fire);
+            fire.scheduleActions(scheduler, world, imageStore);
+            world.setBackground(p, new Background(imageStore.getImageList("burnt")));
+        }
+
+    }
+
+
+    private Point translatePoint(Point pos, int dx, int dy) {
+        return new Point(pos.getX() + dx, pos.getY() + dy);
+    }
+
+    private void moveStuff(int dx, int dy) {
+        Character c = world.getCharacter();
+        Point newPos = new Point(c.getPosition().getX() + dx, c.getPosition().getY() + dy);
+
+        Optional<Entity> target = world.findNearest(c.getPosition(), Ore.class);
+        if(target.isPresent()) {
+            if(world.isOccupied(newPos)) {
+                if(world.getOccupant(newPos).equals(target)){
+                    world.removeEntity(target.get());
+                    scheduler.unscheduleAllEvents(target.get());
+                    c.getInventory().addOre();
+                }
+            }
+        }
+
+        if(world.withinBounds(newPos) && !world.isOccupied(newPos)) {
+            if(world.characterWithinXBounds(c.getPosition(), view)) {
+                view.shiftView(dx, 0);
+            }
+            if(world.characterWithinYBounds(c.getPosition(), view)) {
+                view.shiftView(0, dy);
+            }
+            c.setPosition(new Point(c.getPosition().getX() + dx, c.getPosition().getY() + dy));
+        }
+    }
+
+
+
     private static Background createDefaultBackground(ImageStore imageStore) {
-        return new Background(DEFAULT_IMAGE_NAME,
-                imageStore.getImageList(DEFAULT_IMAGE_NAME));
+        return new Background(imageStore.getImageList(DEFAULT_IMAGE_NAME));
     }
 
     private static PImage createImageColored(int width, int height, int color) {
@@ -119,9 +209,16 @@ public final class VirtualWorld
         return img;
     }
 
+    private static void loadImages(String filename, ImageStore imageStore, PApplet screen) {
+        try {
+            Scanner in = new Scanner(new File(filename));
+            ImageCreator.loadImages(in, imageStore, screen);
+        } catch (FileNotFoundException e) {
+            System.err.println(e.getMessage());
+        }
+    }
 
-    private static void loadWorld(WorldModel world, String filename,
-                                 ImageStore imageStore) {
+    private static void loadWorld(WorldModel world, String filename, ImageStore imageStore) {
         try {
             Scanner in = new Scanner(new File(filename));
             Loader.load(in, world, imageStore);
@@ -130,14 +227,11 @@ public final class VirtualWorld
         }
     }
 
-
-
     private static void scheduleActions(WorldModel world, EventScheduler scheduler, ImageStore imageStore) {
-        for (Entity entity : world.getEntities()) {
-            if(entity instanceof ActivityEntity){
-                ((ActivityEntity)entity).scheduleActions(scheduler, world, imageStore);
+        for (Entity entity : world.entities()) {
+            if (entity instanceof ActiveEntity) {
+                ((ActiveEntity) entity).scheduleActions(scheduler, world, imageStore);
             }
-
         }
     }
 
@@ -161,4 +255,5 @@ public final class VirtualWorld
         parseCommandLine(args);
         PApplet.main(VirtualWorld.class);
     }
+
 }

@@ -1,5 +1,4 @@
-public interface Action {
-
-    void executeAction(EventScheduler scheduler);
-
+public interface Action
+{
+   void executeAction(EventScheduler scheduler);
 }

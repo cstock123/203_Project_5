@@ -12,10 +12,10 @@ final class WorldModel {
     private static final int ORE_REACH = 1;
 
     public WorldModel(int numRows, int numCols, Background defaultBackground) {
-        this.numRows = numRows;
-        this.numCols = numCols;
-        this.background = new Background[numRows][numCols];
-        this.occupancy = new Entity[numRows][numCols];
+        this.numRows = numRows * 2;
+        this.numCols = numCols * 2;
+        this.background = new Background[numRows * 2][numCols * 2];
+        this.occupancy = new Entity[numRows * 2][numCols * 2];
         this.entities = new HashSet<>();
 
         for (int row = 0; row < numRows; row++) {
@@ -23,73 +23,25 @@ final class WorldModel {
         }
     }
 
-    public int getNumRows() { return numRows; }
-    public int getNumCols() { return numCols; }
-    public Set<Entity> getEntities() { return entities; }
+    public int numRows() {
+        return numRows;
+    }
 
-    public Optional<Point> findOpenAround(Point pos) {
-        for (int dy = -ORE_REACH; dy <= ORE_REACH; dy++) {
-            for (int dx = -ORE_REACH; dx <= ORE_REACH; dx++) {
-                Point newPt = new Point(pos.getX() + dx, pos.getY() + dy);
-                if (withinBounds(newPt) &&
-                        !isOccupied(newPt)) {
-                    return Optional.of(newPt);
-                }
+    public int numCols() {
+        return numCols;
+    }
+
+    public Set<Entity> entities() {
+        return entities;
+    }
+
+    public Character getCharacter() {
+        for(Entity e : entities) {
+            if(e.getClass() == Character.class) {
+                return (Character)e;
             }
         }
-
-        return Optional.empty();
-    }
-
-    public void tryAddEntity(Entity entity) {
-        if (isOccupied(entity.getPosition())) {
-            // arguably the wrong type of exception, but we are not
-            // defining our own exceptions yet
-            throw new IllegalArgumentException("position occupied");
-        }
-
-        addEntity(entity);
-    }
-
-    public boolean withinBounds(Point pos) {
-        return pos.getY() >= 0 && pos.getY() < numRows &&
-                pos.getX() >= 0 && pos.getX() < numCols;
-    }
-
-    public boolean isOccupied(Point pos) {
-        return withinBounds(pos) &&
-                getOccupancyCell(pos) != null;
-    }
-
-    public Optional<Entity> findNearest(Point pos, Class c) {
-        List<Entity> ofType = new LinkedList<>();
-        for (Entity entity : entities) {
-            if (c.isInstance(entity)) {
-                ofType.add(entity);
-            }
-        }
-
-        return nearestEntity(ofType, pos);
-    }
-
-    private Optional<Entity> nearestEntity(List<Entity> entities, Point pos) {
-        if (entities.isEmpty()) {
-            return Optional.empty();
-        } else {
-            Entity nearest = entities.get(0);
-            int nearestDistance = nearest.getPosition().distanceSquared(pos);
-
-            for (Entity other : entities) {
-                int otherDistance = other.getPosition().distanceSquared(pos);
-
-                if (otherDistance < nearestDistance) {
-                    nearest = other;
-                    nearestDistance = otherDistance;
-                }
-            }
-
-            return Optional.of(nearest);
-        }
+        return null;
     }
 
     /*
@@ -103,6 +55,38 @@ final class WorldModel {
         }
     }
 
+    public boolean withinBounds(Point pos) {
+        return pos.y >= 0 && pos.y < numRows &&
+                pos.x >= 0 && pos.x < numCols;
+    }
+
+    public boolean isOccupied(Point pos) {
+        return withinBounds(pos) && getOccupancyCell(pos) != null;
+    }
+
+    public Optional<Point> findOpenAround(Point pos) {
+        for (int dy = -ORE_REACH; dy <= ORE_REACH; dy++) {
+            for (int dx = -ORE_REACH; dx <= ORE_REACH; dx++) {
+                Point newPt = new Point(pos.x + dx, pos.y + dy);
+                if (withinBounds(newPt) &&
+                        !isOccupied(newPt)) {
+                    return Optional.of(newPt);
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
+    public Optional<Entity> findNearest(Point pos, Class classtype) {
+        List<Entity> ofType = new LinkedList<>();
+        for (Entity entity : entities) {
+            if (entity.getClass().equals(classtype)) {
+                ofType.add(entity);
+            }
+        }
+        return nearestEntity(ofType, pos);
+    }
+
     public void moveEntity(Entity entity, Point pos) {
         Point oldPos = entity.getPosition();
         if (withinBounds(pos) && !pos.equals(oldPos)) {
@@ -113,13 +97,12 @@ final class WorldModel {
         }
     }
 
-    public Character getCharacter() {
-        for(Entity e : entities) {
-            if(e.getClass() == Character.class) {
-                return (Character)e;
-            }
-        }
-        return null;
+    public boolean characterWithinXBounds(Point pos, WorldView view) {
+        return pos.getX() > (view.screenWidth() / (2 * 32)) && pos.getX() < numCols - (view.screenWidth() / (2 * 32) - 1);
+    }
+
+    public boolean characterWithinYBounds(Point pos, WorldView view) {
+        return pos.getY() > (view.screenHeight() / (2 * 32)) && pos.getY() < numRows - (view.screenHeight() / (2 * 32));
     }
 
     public void removeEntity(Entity entity) {
@@ -147,10 +130,20 @@ final class WorldModel {
         }
     }
 
-    public void setBackground(Point pos, Background background) {
-        if (withinBounds(pos)) {
-            setBackgroundCell(pos, background);
-        }
+    private Background getBackgroundCell(Point pos) {
+        return background[pos.y][pos.x];
+    }
+
+    private void setBackgroundCell(Point pos, Background background) {
+        this.background[pos.y][pos.x] = background;
+    }
+
+    private Entity getOccupancyCell(Point pos) {
+        return occupancy[pos.y][pos.x];
+    }
+
+    private void setOccupancyCell(Point pos, Entity entity) {
+        occupancy[pos.y][pos.x] = entity;
     }
 
     public Optional<Entity> getOccupant(Point pos) {
@@ -161,20 +154,38 @@ final class WorldModel {
         }
     }
 
-    private Entity getOccupancyCell(Point pos) {
-        return occupancy[pos.getY()][pos.getX()];
+    public void setBackground(Point pos, Background background) {
+        if (withinBounds(pos)) {
+            setBackgroundCell(pos, background);
+        }
     }
 
-    private void setOccupancyCell(Point pos, Entity entity) {
-        occupancy[pos.getY()][pos.getX()] = entity;
+    public void tryAddEntity(Entity entity) {
+        if (isOccupied(entity.getPosition())) {
+            // arguably the wrong type of exception, but we are not
+            // defining our own exceptions yet
+            throw new IllegalArgumentException("position occupied");
+        }
+
+        addEntity(entity);
     }
 
-    private Background getBackgroundCell(Point pos) {
-        return background[pos.getY()][pos.getX()];
-    }
+    public static Optional<Entity> nearestEntity(List<Entity> entities, Point pos) {
+        if (entities.isEmpty()) {
+            return Optional.empty();
+        } else {
+            Entity nearest = entities.get(0);
+            int nearestDistance = nearest.getPosition().distanceSquared(pos);
 
-    private void setBackgroundCell(Point pos, Background background) {
-        this.background[pos.getY()][pos.getX()] = background;
-    }
+            for (Entity other : entities) {
+                int otherDistance = other.getPosition().distanceSquared(pos);
 
+                if (otherDistance < nearestDistance) {
+                    nearest = other;
+                    nearestDistance = otherDistance;
+                }
+            }
+            return Optional.of(nearest);
+        }
+    }
 }

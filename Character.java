@@ -1,38 +1,20 @@
-import java.util.List;
-import java.util.Optional;
 import processing.core.PImage;
 
-public class Character extends MovableEntity {
+import java.util.List;
 
-    public Character(Point position, List<PImage> images, int actionPeriod, int animationPeriod) {
-        super(position, images, actionPeriod, animationPeriod);
+public class Character extends MoveableEntity{
+    private Inventory inventory;
+
+    public Character(Point position, List<PImage> images, int actionPeriod, int animationPeriod, int repeatCount,
+                        Inventory inventory) {
+        super(position, images, actionPeriod, animationPeriod, repeatCount);
+        this.inventory = inventory;
     }
 
-    public void executeActivity(WorldModel world, ImageStore imageStore, EventScheduler scheduler) {
-        //Point nextPos = new Point(getPosition().getX() + 1, getPosition().getY());
-        //moveTo(world, this, scheduler);
+    public void executeActivity(WorldModel world, ImageStore store, EventScheduler eventScheduler) {
     }
 
-    /*
-    public boolean moveTo(WorldModel world, Entity target, EventScheduler scheduler) {
-        Point nextPos = new Point(getPosition().getX() + 1, getPosition().getY());
-
-        if (!getPosition().equals(nextPos)) {
-            Optional<Entity> occupant = world.getOccupant(nextPos);
-            if (occupant.isPresent()) {
-                scheduler.unscheduleAllEvents(occupant.get());
-            }
-            world.moveEntity(this, nextPos);
-        }
-        return false;
+    public Inventory getInventory() {
+        return inventory;
     }
-    */
-
-    /*
-    public void scheduleActions(EventScheduler scheduler, WorldModel world, ImageStore imageStore) {
-        super.scheduleActions(scheduler, world, imageStore);
-        scheduler.scheduleEvent(this, createAnimationAction(0),
-                getAnimationPeriod());
-    }
-    */
 }

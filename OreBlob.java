@@ -1,49 +1,67 @@
-import java.util.List;
-import java.util.Optional;
 import processing.core.PImage;
 
-public class OreBlob extends MovableEntity {
+import java.util.List;
+import java.util.Optional;
 
-    private final String QUAKE_KEY = "quake";
+public class OreBlob extends  MoveableEntity
+{
 
+    private static final int QUAKE_ACTION_PERIOD = 1100;
+    private static final int QUAKE_ANIMATION_PERIOD = 100;
 
-    public OreBlob(Point position, List<PImage> images, int actionPeriod, int animationPeriod) {
-        super(position, images, actionPeriod, animationPeriod);
+    private static final String QUAKE_KEY = "quake";
+
+    public OreBlob(Point position, List<PImage> images, int actionPeriod, int animationPeriod, int repeatCount)
+    {
+        super(position, images, actionPeriod, animationPeriod, repeatCount);
     }
 
-    public void executeActivity(WorldModel world, ImageStore imageStore, EventScheduler scheduler) {
+    public void executeActivity(WorldModel world, ImageStore imageStore, EventScheduler scheduler)
+    {
         Optional<Entity> blobTarget = world.findNearest(getPosition(), Vein.class);
-        long nextPeriod = getActionPeriod();
+        long nextPeriod = actionPeriod();
 
-        if (blobTarget.isPresent()) {
+        if (blobTarget.isPresent())
+        {
             Point tgtPos = blobTarget.get().getPosition();
 
-            if (moveTo(world, blobTarget.get(), scheduler)) {
-                Quake quake = Loader.createQuake(tgtPos, imageStore.getImageList(QUAKE_KEY));
-
+            if (moveTo(world, blobTarget.get(), scheduler))
+            {
+                ActiveEntity quake = new Quake(tgtPos, imageStore.getImageList(QUAKE_KEY),
+                        QUAKE_ACTION_PERIOD, QUAKE_ANIMATION_PERIOD);
                 world.addEntity(quake);
-                nextPeriod += getActionPeriod();
+                nextPeriod += actionPeriod();
                 quake.scheduleActions(scheduler, world, imageStore);
             }
         }
 
         scheduler.scheduleEvent(this,
-                createActivityAction(world, imageStore),
+                new Activity(this, world, imageStore),
                 nextPeriod);
     }
-
-    public void scheduleActions(EventScheduler scheduler, WorldModel world, ImageStore imageStore) {
-        super.scheduleActions(scheduler, world, imageStore);
-        scheduler.scheduleEvent(this, createAnimationAction(0), getAnimationPeriod());
-    }
-
-    public boolean moveTo(WorldModel world, Entity target, EventScheduler scheduler) {
-        if (getPosition().adjacent(target.getPosition())) {
+    public boolean moveTo(WorldModel world, Entity target, EventScheduler scheduler)
+    {
+        if (getPosition().adjacent(target.getPosition()))
+        {
             world.removeEntity(target);
             scheduler.unscheduleAllEvents(target);
             return true;
-        } else {
-            return super.moveTo(world, target, scheduler);
+        }
+        else
+        {
+            Point nextPos = nextPosition(world, target.getPosition());
+
+            if (!getPosition().equals(nextPos))
+            {
+                Optional<Entity> occupant = world.getOccupant(nextPos);
+                if (occupant.isPresent())
+                {
+                    scheduler.unscheduleAllEvents(occupant.get());
+                }
+
+                world.moveEntity(this, nextPos);
+            }
+            return false;
         }
     }
 }

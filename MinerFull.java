@@ -1,38 +1,48 @@
-import java.util.List;
-import java.util.Optional;
 import processing.core.PImage;
 
-final class MinerFull extends MovableEntity{
+import java.util.List;
+import java.util.Optional;
 
-    private  int resourceLimit;
+public class MinerFull extends MoveableEntity {
+    private String id;
+    private int resourceLimit;
 
-    public MinerFull(Point position, List<PImage> images, int resourceLimit, int actionPeriod, int animationPeriod) {
-        super(position, images, actionPeriod, animationPeriod);
+    public MinerFull(String id, Point position,
+                     List<PImage> images, int resourceLimit, int actionPeriod, int animationPeriod, int repeatCount) {
+        super(position, images, actionPeriod, animationPeriod, repeatCount);
+        this.id = id;
         this.resourceLimit = resourceLimit;
     }
 
     public void executeActivity(WorldModel world, ImageStore imageStore, EventScheduler scheduler) {
         Optional<Entity> fullTarget = world.findNearest(getPosition(),
-                BlackSmith.class);
+                Blacksmith.class);
+
+        Optional<Entity> fireTarget = world.findNearest(getPosition(), Fire.class);
 
         if (fullTarget.isPresent() && moveTo(world, fullTarget.get(), scheduler)) {
             transformFull(world, scheduler, imageStore);
+        } else if(fireTarget.isPresent() && getPosition().adjacent(fireTarget.get().getPosition())) {
+            //transformToFire(world, scheduler, imageStore);
         } else {
             scheduler.scheduleEvent(this,
-                    createActivityAction(world, imageStore),
-                    getActionPeriod());
+                    new Activity(this, world, imageStore),
+                    actionPeriod());
         }
     }
 
-    public void scheduleActions(EventScheduler scheduler, WorldModel world, ImageStore imageStore) {
-        super.scheduleActions(scheduler, world, imageStore);
-        scheduler.scheduleEvent(this, createAnimationAction(0),
-                getAnimationPeriod());
+    private void transformToFire(WorldModel world, EventScheduler scheduler, ImageStore imageStore) {
+        ActiveEntity fireMiner = new MinerOnFire(id, getPosition(), imageStore.getImageList("minerFire"), resourceLimit,  actionPeriod(), animationPeriod(), 0);
+
+        world.removeEntity(this);
+        scheduler.unscheduleAllEvents(this);
+
+        world.addEntity(fireMiner);
+        fireMiner.scheduleActions(scheduler, world, imageStore);
     }
 
     private void transformFull(WorldModel world, EventScheduler scheduler, ImageStore imageStore) {
-        MinerNotFull miner = Loader.createMinerNotFull(resourceLimit,
-                getPosition(), getActionPeriod(), getAnimationPeriod(), getImages());
+        ActiveEntity miner = new MinerNotFull(id, getPosition(), images(), resourceLimit, 0, actionPeriod(), animationPeriod(), 0);
 
         world.removeEntity(this);
         scheduler.unscheduleAllEvents(this);
@@ -45,7 +55,17 @@ final class MinerFull extends MovableEntity{
         if (getPosition().adjacent(target.getPosition())) {
             return true;
         } else {
-            return super.moveTo(world, target, scheduler);
+            Point nextPos = nextPosition(world, target.getPosition());
+
+            if (!getPosition().equals(nextPos)) {
+                Optional<Entity> occupant = world.getOccupant(nextPos);
+                if (occupant.isPresent()) {
+                    scheduler.unscheduleAllEvents(occupant.get());
+                }
+
+                world.moveEntity(this, nextPos);
+            }
+            return false;
         }
     }
 }
